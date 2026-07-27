@@ -1,0 +1,52 @@
+global:
+  check_interval: 30
+  notification:
+    dingtalk_webhook: ''
+    wechat_webhook: ''
+process:
+  watch_ports:
+  - 80
+  - 3000
+  - 3001
+  - 3002
+rules:
+- collector: memory
+  condition: value['available_gb'] < threshold
+  cooldown: 300
+  enabled: true
+  healer: memory_cleaner
+  name: 内存不足告警
+  notify: true
+  threshold: 0.2
+- collector: disk
+  condition: value['use_pct'] > threshold
+  cooldown: 600
+  enabled: true
+  healer: disk_cleaner
+  name: 磁盘使用率过高
+  notify: true
+  threshold: 85
+- collector: process
+  condition: not value['alive']
+  cooldown: 60
+  enabled: true
+  healer: process_restarter
+  name: 进程端口不通
+  notify: true
+  threshold: null
+- collector: cpu
+  condition: value['load_1min'] > threshold
+  cooldown: 300
+  enabled: true
+  healer: null
+  name: CPU 持续高负载
+  notify: true
+  threshold: 2.0
+- collector: security
+  condition: value['failed_attempts'] > threshold
+  cooldown: 120
+  enabled: true
+  healer: ssh_ban
+  name: SSH 爆破检测
+  notify: true
+  threshold: 10

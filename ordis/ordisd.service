@@ -1,0 +1,14 @@
+[Unit]
+Description=Ordis Self-Healing Daemon
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=python3 /opt/ordis/ordisd.py run
+WorkingDirectory=/opt/ordis
+Restart=always
+RestartSec=10
+User=root
+
+[Install]
+WantedBy=multi-user.target
