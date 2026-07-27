@@ -197,6 +197,10 @@ YAML 定义规则 + Python `eval()` 执行条件 + 冷却时间防抖。
 - 自动封禁 12 次 SSH 暴力破解
 - 3 次服务自动重启（OOM 恢复）
 
+### 为什么做这个？
+
+市面上的监控工具（Prometheus 200MB+、Zabbix 500MB+）对于一台 1.6GB 内存的轻量云服务器来说太重了。我只是想要一个**看得见服务器状态、出了问题能自己修一下**的小工具，结果发现没有——那就自己写一个。
+
 ### License
 
 MIT — do whatever you want, just don't sue me.
