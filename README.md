@@ -5,10 +5,11 @@
 # Ordis — 轻量运维自动化 · 服务器自愈守护进程
 
 <p align="center">
-  <strong>⚡ 50MB 内存 · 5 个采集器 · 4 个修复器 · AI 诊断</strong><br>
-  <sub>一个会自己修自己的服务器守护进程。</sub>
+  <strong>⚡ 50MB 内存 · 5 个采集器 · 4 个修复器 · AI 诊断</strong>
 </p>
+
 <p align="center">
+  <img src="https://img.shields.io/badge/状态-🚧_Demo_开发中-orange" alt="status">
   <img src="https://img.shields.io/badge/运维自动化-auto--heal-brightgreen" alt="auto-heal">
   <img src="https://img.shields.io/badge/RAM-50MB-lightgrey" alt="50MB">
   <img src="https://img.shields.io/badge/AI-Claude%20Code-blue" alt="Claude">
@@ -16,102 +17,79 @@
   <img src="https://img.shields.io/badge/license-MIT-green" alt="MIT">
 </p>
 
-
 <p align="center">
-  <a href="#-what-is-ordis">English</a> ·
-  <a href="#-ordis-是什么">中文</a>
+  <a href="#english">English</a> ·
+  <a href="#中文">中文</a>
 </p>
 
 ---
 
-## 🇬🇧 What is Ordis?
+## English
 
-Ordis is a **lightweight self-healing daemon** that monitors your server and **automatically fixes problems** before you even notice.
+### ⚠️ Status: Demo / Work in Progress
 
-> **Honest disclaimer:** Ordis is not a from-scratch monitoring giant. It's a pragmatic glue project — it **leverages PM2** for process management, **leverages Claude Code** for AI diagnosis, and wraps them in a clean architected loop: collect → evaluate → heal → log. The value is in the **architecture and integration**, not in reinventing wheels.
+This is a **functional demo**, not a production-hardened tool. It runs on my personal server (Alibaba Cloud ECS, 1.6GB RAM) and handles real incidents. But there are sharp edges — error handling is minimal, there's no distributed mode, and configuration is file-based. **Use at your own risk. Contributions welcome.**
 
-### Features
+### What Problem Does It Solve?
 
-| Feature | How |
-|---------|-----|
-| **Auto-repair** | PM2/systemd restart, memory cleaning, disk cleanup, SSH auto-ban |
-| **AI diagnosis** | Claude Code integration via chat — ask questions, get diagnosis |
-| **50MB RAM** | Runs on a $5 VPS without breaking a sweat |
-| **Plugin architecture** | Add collectors/healers without touching engine code |
-| **YAML rules** | Human-readable rule definitions with cooldown |
-| **Dark dashboard** | Real-time metrics, event timeline, rule management |
-| **SSH defense** | Journald cursor-based incremental brute-force detection + ufw auto-ban |
+Traditional monitoring tools (Prometheus, Zabbix, Netdata) are great at **telling you something broke**. Ordis tries to **fix it**.
 
-### Dashboard
+- Server process crashes at 3 AM? Ordis restarts it.
+- Memory creeping up? Ordis flushes caches.
+- SSH brute-force attack? Ordis bans the IP.
+- Weird failure you need AI to diagnose? Ordis calls Claude Code.
 
-<p align="center">
-  <img src="screenshots/dashboard.png" alt="Dashboard" width="100%">
-  <br><sub>Real-time system metrics with expandable detail panels</sub>
-</p>
-
-### AI Chat
-
-<p align="center">
-  <img src="screenshots/chat.png" alt="AI Chat" width="100%">
-  <br><sub>Claude Code integration — click "AI诊断" on failed events to auto-fill diagnostic questions</sub>
-</p>
-
-### Architecture
+### Architecture Deep Dive
 
 ```
-Ordis Daemon (30s loop)
-├── Collectors (6)
-│   ├── CPU    — load, usage, per-core
-│   ├── Memory — available, swap, usage %
-│   ├── Disk   — usage, free space
-│   ├── Process — port health (TCP check)
-│   └── Security — SSH brute-force (journald cursor)
-├── Rule Engine
-│   └── YAML-driven eval() expressions + cooldown
-├── Healers (4)
-│   ├── Process Restarter — PM2 + systemd dual
-│   ├── Memory Cleaner   — flush caches + drop_caches
-│   ├── Disk Cleaner      — apt clean + log rotation
-│   └── SSH Ban           — ufw auto-block
-└── Web Dashboard (FastAPI)
-    ├── Live metrics (30s refresh)
-    ├── Event timeline
-    ├── Rule management
-    └── Claude Code chat
+┌─────────────────────────────────────────┐
+│              Ordis Daemon                │
+│          (30-second loop)               │
+├─────────────────────────────────────────┤
+│                                         │
+│  ┌──────────┐    ┌──────────┐           │
+│  │ Collectors│───▶│  Engine  │           │
+│  └──────────┘    └────┬─────┘           │
+│       │               │                 │
+│       │          ┌────▼─────┐           │
+│       │          │  Healers  │          │
+│       │          └────┬─────┘           │
+│       │               │                 │
+│  ┌────▼───────────────▼─────┐           │
+│  │     Event Logger          │          │
+│  └───────────────────────────┘          │
+│                                         │
+│  ┌───────────────────────────┐          │
+│  │   Web Dashboard (FastAPI)  │          │
+│  │   /api/status  /api/events │          │
+│  │   /api/rules   /api/chat   │          │
+│  └───────────────────────────┘          │
+└─────────────────────────────────────────┘
 ```
 
-### Compared to...
+#### Collectors (6)
 
-| Feature | Prometheus | Zabbix | Netdata | **Ordis** |
-|---------|-----------|--------|---------|-----------|
-| Auto-repair | ❌ | ❌ | ❌ | ✅ |
-| AI diagnosis | ❌ | ❌ | ❌ | ✅ |
-| RAM usage | 200MB+ | 500MB+ | 100MB+ | **50MB** |
-| YAML rules | ✅ | ❌ | ❌ | ✅ |
-| SSH defense | ❌ | ❌ | ❌ | ✅ |
-| Deploy time | 30min | 60min | 5min | **30s** |
+| Collector | Source | Output |
+|-----------|--------|--------|
+| `cpu` | `psutil.cpu_percent()` | load_1min, load_5min, load_15min, cpu_percent |
+| `memory` | `psutil.virtual_memory()` | available_gb, used_gb, total_gb, swap_used_gb, percent |
+| `disk` | `shutil.disk_usage("/")` | use_pct, used_gb, free_gb |
+| `process` | TCP socket connect | per-port alive/dead map |
+| `security` | `journalctl` with cursor | failed SSH attempts, offending IPs, bans |
 
----
+Each collector extends `BaseCollector` — just implement `collect()` and return a dict.
 
-## 🇨🇳 Ordis 是什么？
-
-Ordis 是一个**轻量的服务器自愈守护进程**。它每 30 秒扫描一次系统状态，发现问题后自动修复，不需要人工介入。
-
-> **坦诚地说：** Ordis 不是一个从零造轮子的巨无霸。它是一个务实的胶水项目——**借用了 PM2** 管理进程，**借用了 Claude Code** 做 AI 诊断，然后把这些能力装进一个干净的架构里：采集 → 判断 → 修复 → 记录。核心价值在于**架构设计和集成能力**，而非重新发明已有的轮子。
-
-### 快速开始
-
-```bash
-pip install -r requirements.txt
-python3 ordisd.py once     # 跑一轮检查
-python3 ordisd.py run      # 启动守护进程
-sudo cp ordisd.service /etc/systemd/system/  # systemd 托管
-```
-
-### 规则示例
+#### Rule Engine
 
 ```yaml
 rules:
+  - name: "进程端口不通"
+    collector: process
+    condition: "not all(value['ports'].values())"
+    healer: process_restarter
+    cooldown: 60
+    enabled: true
+
   - name: "内存不足告警"
     collector: memory
     condition: "value['available_gb'] < threshold"
@@ -120,13 +98,151 @@ rules:
     cooldown: 300
 ```
 
-### 生产数据
+Uses Python's `eval()` on collector output. Cooldown prevents thrashing.
 
-- 阿里云 ECS（1.6GB 内存，双核）
+#### Healers (4, with port re-check)
+
+| Healer | Action | Verifies? |
+|--------|--------|-----------|
+| `process_restarter` | PM2 restart / systemctl restart | ✅ TCP port re-check; marks `needs_claude` on failure |
+| `memory_cleaner` | `sync; echo 3 > /proc/sys/vm/drop_caches` | ❌ |
+| `disk_cleaner` | `apt clean`, temp file cleanup | ❌ |
+| `ssh_ban` | `ufw deny from <IP>` | ❌ |
+
+When a healer fails even after re-checking, the dashboard shows an **"AI诊断"** button that pre-fills the chat with diagnostic context.
+
+#### AI Copilot (Claude Code)
+
+```
+Dashboard Chat ──▶ /api/chat ──▶ claude-chat (Express) ──▶ claude --permission-mode bypassPermissions
+                                                                  │
+                                                             runs as 'ordish' user
+                                                             (non-root for YOLO mode)
+```
+
+The AI can execute commands, read logs, and suggest repairs. It's **not a black box** — the `✨ 思考链` (thinking chain) toggle shows Claude's reasoning.
+
+#### Dashboard (VoltAgent Dark Theme)
+
+- **Live metrics**: CPU load, memory usage, disk, SSH attacks — 30s refresh
+- **Expandable drawers**: Click any metric card for detailed breakdown
+- **Service status**: Green/red dots for each monitored process
+- **Event timeline**: Last 5 auto-heal events with success/failure + AI button
+- **Login gate**: 3 failed attempts → 30 min cooldown
+- **Chat persistence**: Messages survive page refresh (localStorage)
+
+### What's Deliberately NOT Included
+
+- No distributed/cluster mode (single-node only)
+- No alerting (no email/Slack/PagerDuty)
+- No persistent DB (events stored as JSON file)
+- No metric aggregation or dashboards beyond the built-in one
+- No Docker image (yet)
+
+### Why?
+
+Because I'm a university student studying DevOps. This is my learning project — a way to understand monitoring, self-healing, and AI integration by building it. If you find it useful, that's a bonus.
+
+### Tech Stack
+
+| Layer | Tech |
+|-------|------|
+| Daemon | Python 3.12, psutil, systemd |
+| Process manager | **PM2** (not our code — we just call it) |
+| AI | **Claude Code** (Anthropic — we just integrate it) |
+| Dashboard | FastAPI + vanilla HTML/CSS/JS |
+| Fonts | Inter, JetBrains Mono, Noto Sans SC |
+| Theme | VoltAgent (carbon black + emerald green) |
+
+### Quick Start
+
+```bash
+git clone https://github.com/laojingaoshou-lab/ordis.git
+cd ordis
+pip install -r requirements.txt
+
+# Edit rules for your server
+vim rules.yaml
+
+# Test one scan cycle
+python3 ordisd.py once
+
+# Run as daemon
+python3 ordisd.py run
+
+# Start dashboard
+uvicorn dashboard:app --host 0.0.0.0 --port 9999
+```
+
+---
+
+## 中文
+
+### ⚠️ 当前状态：Demo / 开发中
+
+这是一个**能跑起来的 Demo**，不是生产级工具。它跑在我的阿里云 ECS（1.6GB 内存）上，能处理真实故障。但错误处理很粗糙，没有分布式模式，配置靠文件。**自用随意，生产慎用。欢迎 PR。**
+
+### 它解决什么问题？
+
+传统监控工具（Prometheus、Zabbix、Netdata）擅长**告诉你什么坏了**。Ordis 尝试**直接修好它**。
+
+- 凌晨三点进程崩了？Ordis 自动重启。
+- 内存越占越多？Ordis 清缓存。
+- SSH 被暴力破解？Ordis 封 IP。
+- 遇到诡异故障？点一下"AI诊断"，Claude Code 来分析。
+
+### 架构详解
+
+#### 采集器 ×6
+
+每个采集器继承 `BaseCollector`，实现 `collect()`，返回字典。新增采集器不需要改引擎代码。
+
+#### 规则引擎
+
+YAML 定义规则 + Python `eval()` 执行条件 + 冷却时间防抖。
+
+#### 修复器 ×4（含端口回检）
+
+`process_restarter` 在重启进程后会再次检查端口——如果端口还是不通，标记为失败并弹出 AI 诊断入口。
+
+#### AI 副驾（Claude Code）
+
+仪表盘聊天框 → `/api/chat` → Node.js 转发 → `claude --permission-mode bypassPermissions`。以非 root 用户 `ordish` 运行。能看到思考链。
+
+#### 仪表盘（VoltAgent 暗色风格）
+
+碳黑 `#050507` + 翡翠绿 `#00d992`。实时数据、可展开面板、事件时间线、登录锁、对话持久化。
+
+### 刻意没做的
+
+- 分布式 / 集群模式
+- 报警（邮件/钉钉/飞书/PagerDuty）
+- 持久化数据库（目前是 JSON 文件）
+- 指标聚合 / Grafana 集成
+- Docker 镜像
+
+### 为什么做这个？
+
+我是集成电路专业的在校生，正在自学运维方向。这是我自己练手的项目——通过造轮子来理解监控、自愈和 AI 集成。如果你觉得好用，那是意外收获。
+
+### 技术栈
+
+| 层级 | 技术 |
+|------|------|
+| 守护进程 | Python 3.12, psutil, systemd |
+| 进程管理 | **PM2**（不是我们自己写的——我们只是调用它） |
+| AI 诊断 | **Claude Code**（Anthropic 的产品——我们只是接入） |
+| 仪表盘 | FastAPI + 原生 HTML/CSS/JS |
+| 字体 | Inter, JetBrains Mono, Noto Sans SC |
+| 设计 | VoltAgent 风格（碳黑 + 翡翠绿） |
+
+### 生产数据（我的个人服务器）
+
+- 阿里云 ECS · 1.6GB RAM · 双核 · Ubuntu 24.04
 - 已连续运行 17 天
-- 自动拦截 12 次 SSH 暴力破解
-- 3 次自动服务重启（OOM 恢复）
+- 自动封禁 12 次 SSH 暴力破解
+- 3 次服务自动重启（OOM 恢复）
 
 ### License
 
-MIT
+MIT — do whatever you want, just don't sue me.
