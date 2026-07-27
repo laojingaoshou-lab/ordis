@@ -2,12 +2,20 @@
   <img src="screenshots/dashboard.png" alt="Ordis Dashboard" width="100%">
 </p>
 
-# Ordis — 轻量自愈服务器守护进程
+# Ordis — 轻量运维自动化 · 服务器自愈守护进程
 
 <p align="center">
   <strong>⚡ 50MB 内存 · 5 个采集器 · 4 个修复器 · AI 诊断</strong><br>
   <sub>一个会自己修自己的服务器守护进程。</sub>
 </p>
+<p align="center">
+  <img src="https://img.shields.io/badge/运维自动化-auto--heal-brightgreen" alt="auto-heal">
+  <img src="https://img.shields.io/badge/RAM-50MB-lightgrey" alt="50MB">
+  <img src="https://img.shields.io/badge/AI-Claude%20Code-blue" alt="Claude">
+  <img src="https://img.shields.io/badge/process-PM2-red" alt="PM2">
+  <img src="https://img.shields.io/badge/license-MIT-green" alt="MIT">
+</p>
+
 
 <p align="center">
   <a href="#-what-is-ordis">English</a> ·
