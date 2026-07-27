@@ -131,29 +131,6 @@ The AI can execute commands, read logs, and suggest repairs. It's **not a black 
 - **Login gate**: 3 failed attempts → 30 min cooldown
 - **Chat persistence**: Messages survive page refresh (localStorage)
 
-### What's Deliberately NOT Included
-
-- No distributed/cluster mode (single-node only)
-- No alerting (no email/Slack/PagerDuty)
-- No persistent DB (events stored as JSON file)
-- No metric aggregation or dashboards beyond the built-in one
-- No Docker image (yet)
-
-### Why?
-
-Because I'm a university student studying DevOps. This is my learning project — a way to understand monitoring, self-healing, and AI integration by building it. If you find it useful, that's a bonus.
-
-### Tech Stack
-
-| Layer | Tech |
-|-------|------|
-| Daemon | Python 3.12, psutil, systemd |
-| Process manager | **PM2** (not our code — we just call it) |
-| AI | **Claude Code** (Anthropic — we just integrate it) |
-| Dashboard | FastAPI + vanilla HTML/CSS/JS |
-| Fonts | Inter, JetBrains Mono, Noto Sans SC |
-| Theme | VoltAgent (carbon black + emerald green) |
-
 ### Quick Start
 
 ```bash
@@ -209,32 +186,9 @@ YAML 定义规则 + Python `eval()` 执行条件 + 冷却时间防抖。
 
 仪表盘聊天框 → `/api/chat` → Node.js 转发 → `claude --permission-mode bypassPermissions`。以非 root 用户 `ordish` 运行。能看到思考链。
 
-#### 仪表盘（VoltAgent 暗色风格）
-
-碳黑 `#050507` + 翡翠绿 `#00d992`。实时数据、可展开面板、事件时间线、登录锁、对话持久化。
-
-### 刻意没做的
-
-- 分布式 / 集群模式
-- 报警（邮件/钉钉/飞书/PagerDuty）
-- 持久化数据库（目前是 JSON 文件）
-- 指标聚合 / Grafana 集成
-- Docker 镜像
-
 ### 为什么做这个？
 
 我是集成电路专业的在校生，正在自学运维方向。这是我自己练手的项目——通过造轮子来理解监控、自愈和 AI 集成。如果你觉得好用，那是意外收获。
-
-### 技术栈
-
-| 层级 | 技术 |
-|------|------|
-| 守护进程 | Python 3.12, psutil, systemd |
-| 进程管理 | **PM2**（不是我们自己写的——我们只是调用它） |
-| AI 诊断 | **Claude Code**（Anthropic 的产品——我们只是接入） |
-| 仪表盘 | FastAPI + 原生 HTML/CSS/JS |
-| 字体 | Inter, JetBrains Mono, Noto Sans SC |
-| 设计 | VoltAgent 风格（碳黑 + 翡翠绿） |
 
 ### 生产数据（我的个人服务器）
 
