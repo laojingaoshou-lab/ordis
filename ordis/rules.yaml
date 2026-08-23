@@ -3,6 +3,16 @@ global:
   notification:
     dingtalk_webhook: ''
     wechat_webhook: ''
+    email:
+      enabled: false
+      smtp_host: "smtp.163.com"
+      smtp_port: 465
+      use_ssl: true
+      username: "sender@example.com"
+      from: "sender@example.com"
+      to:
+        - "receiver@example.com"
+      password_env: "ORDIS_SMTP_PASSWORD"
 process:
   watch_ports:
   - 80

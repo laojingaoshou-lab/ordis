@@ -1,7 +1,10 @@
-"""通知模块：钉钉机器人 / 企业微信 webhook。"""
+"""通知模块：钉钉机器人 / 企业微信 webhook / SMTP 邮箱。"""
 
 import json
+import os
 import requests
+from email.message import EmailMessage
+import smtplib
 from logger import get_logger
 
 log = get_logger("notifier")
@@ -57,6 +60,46 @@ def wechat_send(webhook: str, title: str, content: str) -> bool:
         return ok
     except Exception as e:
         log.warning("微信通知异常: %s", e)
+        return False
+
+
+def email_send(config: dict, title: str, content: str) -> bool:
+    """发送邮件告警，返回是否成功。"""
+    if not config or not config.get("enabled"):
+        return False
+
+    smtp_host = config.get("smtp_host")
+    smtp_port = config.get("smtp_port", 465)
+    use_ssl = config.get("use_ssl", True)
+    username = config.get("username")
+    from_addr = config.get("from")
+    to_addrs = config.get("to", [])
+    password_env = config.get("password_env", "ORDIS_SMTP_PASSWORD")
+    password = os.getenv(password_env)
+
+    if not all([smtp_host, username, from_addr, to_addrs, password]):
+        log.warning("邮箱配置不完整，跳过发送")
+        return False
+
+    try:
+        msg = EmailMessage()
+        msg["Subject"] = title
+        msg["From"] = from_addr
+        msg["To"] = ", ".join(to_addrs)
+        msg.set_content(content)
+
+        if use_ssl:
+            server = smtplib.SMTP_SSL(smtp_host, smtp_port, timeout=10)
+        else:
+            server = smtplib.SMTP(smtp_host, smtp_port, timeout=10)
+            server.starttls()
+
+        server.login(username, password)
+        server.send_message(msg)
+        server.quit()
+        return True
+    except Exception as e:
+        log.warning("邮件发送失败: %s", e)
         return False
 
 

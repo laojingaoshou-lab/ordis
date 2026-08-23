@@ -7,7 +7,7 @@ from pathlib import Path
 from datetime import datetime
 from logger import get_logger
 from config import load_rules
-from notifier import dingtalk_send, wechat_send
+from notifier import dingtalk_send, wechat_send, email_send
 
 log = get_logger("engine")
 
@@ -128,6 +128,7 @@ def run_once() -> list[dict]:
     notify_cfg = global_cfg.get("notification", {})
     dingtalk_url = notify_cfg.get("dingtalk_webhook", "")
     wechat_url = notify_cfg.get("wechat_webhook", "")
+    email_cfg = notify_cfg.get("email", {})
 
     triggered = []
 
@@ -197,6 +198,8 @@ def run_once() -> list[dict]:
                 notify_ok = dingtalk_send(dingtalk_url, title, body)
             if wechat_url:
                 notify_ok = wechat_send(wechat_url, title, body) or notify_ok
+            if email_cfg.get("enabled"):
+                notify_ok = email_send(email_cfg, title, body) or notify_ok
 
         # 记录
         _record_event(name, collector_name, value, True, heal_result, notify_ok)
