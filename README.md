@@ -5,7 +5,7 @@
 # Ordis — 轻量运维自动化 · 服务器自愈守护进程
 
 <p align="center">
-  <strong>⚡ 50MB 内存 · 5 个采集器 · 4 个修复器 · AI 诊断</strong>
+  <strong>⚡ 50MB 内存 · 5 个采集器 · 4 个修复器 · 3 种通知 · AI 诊断</strong>
 </p>
 
 <p align="center">
@@ -131,6 +131,44 @@ The AI can execute commands, read logs, and suggest repairs. It's **not a black 
 - **Login gate**: 3 failed attempts → 30 min cooldown
 - **Chat persistence**: Messages survive page refresh (localStorage)
 
+#### Notifications (3 channels)
+
+All alerts can be sent through:
+
+| Channel | Configuration | Credentials |
+|---------|--------------|-------------|
+| **DingTalk** | `dingtalk_webhook` in `rules.yaml` | Webhook URL |
+| **WeChat Work** | `wechat_webhook` in `rules.yaml` | Webhook URL |
+| **Email (SMTP)** | `email` section in `rules.yaml` | Password via `ORDIS_SMTP_PASSWORD` env var |
+
+**Email setup example:**
+
+```yaml
+global:
+  notification:
+    email:
+      enabled: true
+      smtp_host: "smtp.163.com"
+      smtp_port: 465
+      use_ssl: true
+      username: "alerts@example.com"
+      from: "alerts@example.com"
+      to:
+        - "admin@example.com"
+      password_env: "ORDIS_SMTP_PASSWORD"
+```
+
+Then set the password:
+
+```bash
+# Create env file
+echo 'ORDIS_SMTP_PASSWORD=your_smtp_password' > /etc/ordis/ordisd.env
+chmod 600 /etc/ordis/ordisd.env
+
+# Add to systemd service (if using systemd)
+# EnvironmentFile=-/etc/ordis/ordisd.env
+```
+
 ### Quick Start
 
 ```bash
@@ -185,6 +223,44 @@ YAML 定义规则 + Python `eval()` 执行条件 + 冷却时间防抖。
 #### AI 副驾（Claude Code）
 
 仪表盘聊天框 → `/api/chat` → Node.js 转发 → `claude --permission-mode bypassPermissions`。以非 root 用户 `ordish` 运行。能看到思考链。
+
+#### 通知方式（3 种）
+
+所有告警支持：
+
+| 渠道 | 配置位置 | 凭据 |
+|------|---------|------|
+| **钉钉机器人** | `rules.yaml` 中的 `dingtalk_webhook` | Webhook URL |
+| **企业微信** | `rules.yaml` 中的 `wechat_webhook` | Webhook URL |
+| **邮箱（SMTP）** | `rules.yaml` 中的 `email` 段 | 密码通过 `ORDIS_SMTP_PASSWORD` 环境变量 |
+
+**邮箱配置示例：**
+
+```yaml
+global:
+  notification:
+    email:
+      enabled: true
+      smtp_host: "smtp.163.com"
+      smtp_port: 465
+      use_ssl: true
+      username: "alerts@example.com"
+      from: "alerts@example.com"
+      to:
+        - "admin@example.com"
+      password_env: "ORDIS_SMTP_PASSWORD"
+```
+
+配置密码：
+
+```bash
+# 创建环境变量文件
+echo 'ORDIS_SMTP_PASSWORD=你的SMTP授权码' > /etc/ordis/ordisd.env
+chmod 600 /etc/ordis/ordisd.env
+
+# systemd 服务加载（如使用 systemd）
+# EnvironmentFile=-/etc/ordis/ordisd.env
+```
 
 ### 为什么做这个？
 
