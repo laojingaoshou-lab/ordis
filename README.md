@@ -1,6 +1,4 @@
-<p align="center">
-  <img src="screenshots/dashboard.png" alt="Ordis 运行面板" width="100%">
-</p>
+
 
 # Ordis v1.0
 
@@ -305,6 +303,9 @@ python3 ordis/test_k8s_checks.py
 ## 当前定位
 
 v1.0 是一个完整可运行的 Linux 运维自动化 Demo，重点展示“检测 → 确定性修复 → AI 接管 → 技能沉淀”的闭环。它仍需要更多生产化工作，包括更完整的权限隔离、配置管理、可观测性、升级策略和大规模集群验证。欢迎提交 Issue 和 Pull Request，共同完善项目。
+
+## 更新动向
+准备兼容prometheus和zabbix，使用其检测功能，更新web前端，老版本的web已经不适配了
 
 ## 许可证
 
