@@ -1,4 +1,6 @@
-
+<p align="center">
+  <img src="screenshots/dashboard.png" alt="Ordis 运行面板" width="100%">
+</p>
 
 # Ordis v1.0
 
@@ -297,8 +299,8 @@ python3 ordis/test_k8s_checks.py
 
 测试中的模型调用应 mock，避免把真实 API key 和外部服务带入测试。详细架构、部署、测试报告和接手说明见：
 
-- [集成说明](docs/INTEGRATION.md)
-- [测试报告](docs/TEST_REPORT_20260827.md)
+- [集成说明（公开版）](docs/public/INTEGRATION.md)
+- [测试报告（公开版）](docs/public/TEST_REPORT_20260827.md)
 
 ## 当前定位
 
