@@ -299,7 +299,6 @@ python3 ordis/test_k8s_checks.py
 
 - [集成说明](docs/INTEGRATION.md)
 - [测试报告](docs/TEST_REPORT_20260827.md)
-- [Codex 接手文档](docs/CODEX_HANDOFF.md)
 
 ## 当前定位
 
