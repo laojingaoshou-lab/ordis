@@ -1,6 +1,4 @@
-<p align="center">
-  <img src="screenshots/dashboard.png" alt="Ordis 运行面板" width="100%">
-</p>
+
 
 # Ordis v1.0
 
