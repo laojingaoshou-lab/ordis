@@ -1,6 +1,4 @@
-<p align="center">
-  <img src="screenshots/dashboard.png" alt="Ordis 运行面板" width="100%">
-</p>
+
 
 # Ordis — Linux / Kubernetes 自愈运维与 AI 故障诊断
 
@@ -38,9 +36,9 @@ ordis status
 
 不需要 AI API key 也可以先运行主机检查；需要 AI 接管时再执行 `ordis setup` 配置模型。完整配置和 Kubernetes 用法见下文。
 
-## 为什么是 Ordis？
+## 什么是 Ordis？
 
-传统监控通常只负责“发现问题”。Ordis 把确定性修复、效果回检、AI 诊断和审计记录串成一个可控闭环：默认只读，修复必须显式开启并配置白名单，AI 生成的技能也必须经过审核后才会生效。
+传统监控通常只负责“发现问题”。Ordis 把确定性修复、效果回检、AI 诊断和自动修复，再次遇到相同问题可以高效解决：默认只读，修复必须显式开启并配置白名单，AI 生成的技能也必须经过审核后才会生效。
 
 ## 功能概览
 
