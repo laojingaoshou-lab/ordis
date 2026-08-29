@@ -233,6 +233,11 @@ def _raw_chat(user_prompt: str, base: str | None = None, model: str | None = Non
               api_key: str | None = None) -> str:
     """最小化对话调用，返回原始文本（供连通性测试用，不校验 JSON）。"""
     base, model, api_key = _resolve_api_cfg(base, model, api_key)
+    try:
+        from model_config import normalize_base_url
+        base = normalize_base_url(base)
+    except Exception:
+        base = str(base).rstrip("/")
     resp = requests.post(
         f"{base}/chat/completions",
         headers={"Authorization": f"Bearer {api_key}",
@@ -242,7 +247,18 @@ def _raw_chat(user_prompt: str, base: str | None = None, model: str | None = Non
         timeout=TIMEOUT,
     )
     resp.raise_for_status()
-    return resp.json()["choices"][0]["message"]["content"]
+    try:
+        payload = resp.json()
+    except ValueError as exc:
+        status = getattr(resp, "status_code", "?")
+        body = str(getattr(resp, "text", "") or "").strip()
+        body = re.sub(r"\s+", " ", body)[:180]
+        raise RuntimeError(
+            f"模型接口返回非 JSON（HTTP {status}）：{body or '空响应'}") from exc
+    try:
+        return payload["choices"][0]["message"]["content"]
+    except (KeyError, IndexError, TypeError) as exc:
+        raise RuntimeError("模型接口 JSON 缺少 choices[0].message.content") from exc
 
 
 def _safe_serialize(obj):

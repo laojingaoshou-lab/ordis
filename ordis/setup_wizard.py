@@ -110,7 +110,8 @@ def run_model_interactive(input_fn: InputFn = input,
     base_url = _prompt(
         input_fn, "API Base URL",
         current.get("base_url") or model_config.DEFAULT_BASE_URL,
-        required=True).rstrip("/")
+        required=True)
+    base_url = model_config.normalize_base_url(base_url)
     model_name = _prompt(
         input_fn, "模型名称", current.get("model", ""), required=True)
     existing_key = current.get("api_key", "") if provider_name == current_name else ""
@@ -156,7 +157,8 @@ def run_interactive(input_fn: InputFn = input,
     base_url = _prompt(
         input_fn, "API Base URL",
         current.get("base_url") or model_config.DEFAULT_BASE_URL,
-        required=True).rstrip("/")
+        required=True)
+    base_url = model_config.normalize_base_url(base_url)
     model_name = _prompt(
         input_fn, "模型名称", current.get("model", ""), required=True)
 

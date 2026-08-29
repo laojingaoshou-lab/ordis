@@ -18,6 +18,7 @@ import json
 import os
 import time
 from pathlib import Path
+from urllib.parse import urlsplit, urlunsplit
 
 try:
     from logger import get_logger
@@ -33,6 +34,25 @@ except ImportError:
     CONFIG_PATH = Path.home() / ".ordis" / "model.json"
 
 DEFAULT_BASE_URL = "https://api.openai.com/v1"
+
+
+def normalize_base_url(base_url: str) -> str:
+    """Normalize common provider URLs before calling an OpenAI-compatible API."""
+    value = (base_url or "").strip().rstrip("/")
+    if not value:
+        return value
+    try:
+        parsed = urlsplit(value)
+        host = (parsed.hostname or "").lower()
+        if host in {"siliconflow.cn", "www.siliconflow.cn"}:
+            port = f":{parsed.port}" if parsed.port else ""
+            path = parsed.path.rstrip("/") or "/v1"
+            value = urlunsplit((parsed.scheme or "https",
+                                f"api.siliconflow.cn{port}", path,
+                                parsed.query, parsed.fragment)).rstrip("/")
+    except ValueError:
+        pass
+    return value
 
 
 # ── 存取 ───────────────────────────────────────────────────────
@@ -66,7 +86,7 @@ def add_provider(name: str, base_url: str, model: str, api_key: str,
     """新增或覆盖供应商，并设为激活。"""
     data = load(path)
     data["providers"][name] = {
-        "base_url": base_url.rstrip("/"),
+        "base_url": normalize_base_url(base_url),
         "model": model,
         "api_key": api_key,
         "added_at": time.strftime("%Y-%m-%d"),
@@ -121,7 +141,8 @@ def test_provider(cfg: dict) -> tuple[str, float]:
     t0 = time.time()
     text = _raw_chat(
         "连通性测试：请只回复两个字：正常",
-        base=cfg["base_url"], model=cfg["model"], api_key=cfg["api_key"],
+        base=normalize_base_url(cfg["base_url"]),
+        model=cfg["model"], api_key=cfg["api_key"],
     )
     return text, round(time.time() - t0, 1)
 

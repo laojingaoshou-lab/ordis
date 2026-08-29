@@ -131,6 +131,18 @@ class TestRepairPrompt(unittest.TestCase):
 
 
 class TestLLMParsing(unittest.TestCase):
+    def test_raw_chat_reports_non_json_upstream_response(self):
+        with mock.patch.object(ai_diagnose.requests, "post") as mp:
+            mp.return_value.status_code = 404
+            mp.return_value.text = "<html>not found</html>"
+            mp.return_value.raise_for_status = lambda: None
+            mp.return_value.json = lambda: (_ for _ in ()).throw(
+                ValueError("Expecting value"))
+            with self.assertRaisesRegex(RuntimeError, "非 JSON.*404"):
+                ai_diagnose._raw_chat(
+                    "ping", base="https://siliconflow.cn",
+                    model="demo/model", api_key="secret")
+
     def test_json_in_codeblock(self):
         text = '```json\n{"fingerprint": {"type": "port_dead"}, "root_cause": "x", "fix_direction": "y"}\n```'
         with mock.patch.object(ai_diagnose.requests, "post") as mp:
