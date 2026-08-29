@@ -140,7 +140,7 @@ class TestLLMParsing(unittest.TestCase):
                 ValueError("Expecting value"))
             with self.assertRaisesRegex(RuntimeError, "非 JSON.*404"):
                 ai_diagnose._raw_chat(
-                    "ping", base="https://siliconflow.cn",
+                    "ping", base="https://api.example.com/v1",
                     model="demo/model", api_key="secret")
 
     def test_json_in_codeblock(self):

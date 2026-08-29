@@ -208,16 +208,6 @@ class TestDatabaseResilience(unittest.TestCase):
 
 
 class TestModelConfigTampering(unittest.TestCase):
-    def test_siliconflow_website_url_is_normalized_to_api_endpoint(self):
-        self.assertEqual(
-            mc.normalize_base_url("https://siliconflow.cn"),
-            "https://api.siliconflow.cn/v1",
-        )
-        self.assertEqual(
-            mc.normalize_base_url("https://www.siliconflow.cn/"),
-            "https://api.siliconflow.cn/v1",
-        )
-
     def test_corrupt_json_graceful(self):
         mc.CONFIG_PATH.write_text("{broken json!!", encoding="utf-8")
         data = mc.load()

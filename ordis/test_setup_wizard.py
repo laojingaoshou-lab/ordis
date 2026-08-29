@@ -28,7 +28,7 @@ class TestSetupWizard(unittest.TestCase):
 
     def test_auto_setup_tests_before_persisting_all_settings(self):
         answers = ScriptedInput([
-            "siliconflow", "https://api.example.com/v1", "demo/model",
+            "provider", "https://api.example.com/v1", "demo/model",
             "1", "2",
         ])
         result = setup_wizard.run_interactive(
@@ -37,7 +37,7 @@ class TestSetupWizard(unittest.TestCase):
             test_fn=lambda _: ("正常", 0.2))
 
         active = model_config.load_active(self.model_path)
-        self.assertEqual(active["name"], "siliconflow")
+        self.assertEqual(active["name"], "provider")
         self.assertEqual(active["api_key"], "secret-key")
         self.assertEqual(model_config.load(self.model_path)["ai_level"], "operate")
         self.assertEqual(ai_mode.load(self.mode_path)["mode"], "auto")

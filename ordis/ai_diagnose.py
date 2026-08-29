@@ -27,7 +27,7 @@ except ImportError:  # 允许独立运行/测试
     log = logging.getLogger("ai_diagnose")
 
 # ── 配置（环境变量可覆盖）───────────────────────────────────────
-API_BASE = os.environ.get("ORDIS_AI_BASE", "https://modelflare.dev/v1")
+API_BASE = os.environ.get("ORDIS_AI_BASE", "https://api.openai.com/v1")
 API_KEY_ENV = "MODEFLARE_API_KEY"
 MODEL = os.environ.get("ORDIS_AI_MODEL", "gpt-5.6-terra")
 TIMEOUT = int(os.environ.get("ORDIS_AI_TIMEOUT", "120"))
@@ -233,11 +233,7 @@ def _raw_chat(user_prompt: str, base: str | None = None, model: str | None = Non
               api_key: str | None = None) -> str:
     """最小化对话调用，返回原始文本（供连通性测试用，不校验 JSON）。"""
     base, model, api_key = _resolve_api_cfg(base, model, api_key)
-    try:
-        from model_config import normalize_base_url
-        base = normalize_base_url(base)
-    except Exception:
-        base = str(base).rstrip("/")
+    base = str(base).rstrip("/")
     resp = requests.post(
         f"{base}/chat/completions",
         headers={"Authorization": f"Bearer {api_key}",

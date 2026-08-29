@@ -106,12 +106,12 @@ def run_model_interactive(input_fn: InputFn = input,
     print("=== 配置模型 API ===")
 
     provider_name = _prompt(
-        input_fn, "供应商名称", current_name or "siliconflow", required=True)
+        input_fn, "供应商名称", current_name, required=True)
     base_url = _prompt(
         input_fn, "API Base URL",
         current.get("base_url") or model_config.DEFAULT_BASE_URL,
         required=True)
-    base_url = model_config.normalize_base_url(base_url)
+    base_url = base_url.rstrip("/")
     model_name = _prompt(
         input_fn, "模型名称", current.get("model", ""), required=True)
     existing_key = current.get("api_key", "") if provider_name == current_name else ""
@@ -153,12 +153,12 @@ def run_interactive(input_fn: InputFn = input,
     print("配置模型 API、AI 接管模式和全局权限；不会启动守护进程。\n")
 
     provider_name = _prompt(
-        input_fn, "供应商名称", current_name or "siliconflow", required=True)
+        input_fn, "供应商名称", current_name, required=True)
     base_url = _prompt(
         input_fn, "API Base URL",
         current.get("base_url") or model_config.DEFAULT_BASE_URL,
         required=True)
-    base_url = model_config.normalize_base_url(base_url)
+    base_url = base_url.rstrip("/")
     model_name = _prompt(
         input_fn, "模型名称", current.get("model", ""), required=True)
 
