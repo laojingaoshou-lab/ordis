@@ -1,10 +1,7 @@
-"""通知模块：钉钉机器人 / 企业微信 webhook / SMTP 邮箱。"""
+"""通知模块：钉钉、企业微信和 SMTP 邮件。"""
 
-import json
-import os
+from __future__ import annotations
 import requests
-from email.message import EmailMessage
-import smtplib
 from logger import get_logger
 
 log = get_logger("notifier")
@@ -64,42 +61,50 @@ def wechat_send(webhook: str, title: str, content: str) -> bool:
 
 
 def email_send(config: dict, title: str, content: str) -> bool:
-    """发送邮件告警，返回是否成功。"""
-    if not config or not config.get("enabled"):
+    """通过 SMTP 发送管理员邮件；密码仅从指定环境变量读取。"""
+    import os
+    import smtplib
+    import ssl
+    from email.message import EmailMessage
+
+    host = str(config.get("smtp_host") or "")
+    port = int(config.get("smtp_port") or 0)
+    user = str(config.get("smtp_user") or "")
+    sender = str(config.get("from_address") or user)
+    recipient = str(config.get("to") or "")
+    security = str(config.get("security") or "ssl")
+    password_env = str(config.get("password_env") or "")
+    password = os.environ.get(password_env, "") if password_env else ""
+    if (not host or not port or not sender or not recipient or
+            any(ch in sender + recipient + title for ch in "\r\n")):
+        log.warning("邮件通知配置不完整或邮件头无效")
+        return False
+    if user and not password:
+        log.warning("邮件通知缺少 SMTP 密码环境变量: %s", password_env)
         return False
 
-    smtp_host = config.get("smtp_host")
-    smtp_port = config.get("smtp_port", 465)
-    use_ssl = config.get("use_ssl", True)
-    username = config.get("username")
-    from_addr = config.get("from")
-    to_addrs = config.get("to", [])
-    password_env = config.get("password_env", "ORDIS_SMTP_PASSWORD")
-    password = os.getenv(password_env)
-
-    if not all([smtp_host, username, from_addr, to_addrs, password]):
-        log.warning("邮箱配置不完整，跳过发送")
-        return False
+    message = EmailMessage()
+    message["Subject"] = title
+    message["From"] = sender
+    message["To"] = recipient
+    message.set_content(content)
 
     try:
-        msg = EmailMessage()
-        msg["Subject"] = title
-        msg["From"] = from_addr
-        msg["To"] = ", ".join(to_addrs)
-        msg.set_content(content)
-
-        if use_ssl:
-            server = smtplib.SMTP_SSL(smtp_host, smtp_port, timeout=10)
+        context = ssl.create_default_context()
+        if security == "ssl":
+            client = smtplib.SMTP_SSL(host, port, timeout=15,
+                                      context=context)
         else:
-            server = smtplib.SMTP(smtp_host, smtp_port, timeout=10)
-            server.starttls()
-
-        server.login(username, password)
-        server.send_message(msg)
-        server.quit()
+            client = smtplib.SMTP(host, port, timeout=15)
+        with client:
+            if security == "starttls":
+                client.starttls(context=context)
+            if user:
+                client.login(user, password)
+            client.send_message(message)
         return True
-    except Exception as e:
-        log.warning("邮件发送失败: %s", e)
+    except Exception as exc:
+        log.warning("邮件通知失败: %s", exc)
         return False
 
 

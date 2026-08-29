@@ -1,5 +1,6 @@
 """进程/端口采集器：检查配置的进程是否存活（端口是否在监听）。"""
 
+from __future__ import annotations
 import socket
 from collectors.base import BaseCollector
 from config import load_rules
@@ -19,7 +20,7 @@ class ProcessCollector(BaseCollector):
         """从 rules.yaml 的 process.watch_ports 读取端口列表。"""
         rules = load_rules()
         proc_rules = rules.get("process", {})
-        self._watch_ports = proc_rules.get("watch_ports", [])
+        self._watch_ports = proc_rules.get("watch_ports") or []
 
     def _check_port(self, port: int) -> bool:
         """检测本机某个端口是否有进程在监听。"""

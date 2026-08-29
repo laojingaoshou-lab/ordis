@@ -1,5 +1,6 @@
 """CPU 采集器：负载 + 使用率（跨平台兼容）。"""
 
+from __future__ import annotations
 import psutil
 from collectors.base import BaseCollector
 

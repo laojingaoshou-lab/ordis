@@ -1,0 +1,8 @@
+{
+  "name": "ordis-browser-tools",
+  "private": true,
+  "description": "Local browser tooling for Ordis documentation and UI verification",
+  "devDependencies": {
+    "playwright": "1.62.1"
+  }
+}

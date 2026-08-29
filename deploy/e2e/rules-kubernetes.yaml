@@ -1,0 +1,33 @@
+global:
+  check_interval: 30
+  notification:
+    dingtalk_webhook: ''
+    wechat_webhook: ''
+detection:
+  cooldown: 0
+  traditional:
+    enabled: false
+  kubernetes:
+    enabled: true
+    context: ''
+    kubeconfig: ''
+    cluster_name: ''
+    timeout: 10
+    pod_pending_seconds: 0
+    pod_restart_threshold: 1000000
+    pvc_pending_seconds: 1000000
+    namespaces:
+      - ordis-e2e
+    node_ignore_names:
+      - node1
+    reason_allowlist:
+      - replicas_unavailable
+    repair:
+      enabled: true
+      ai_enabled: true
+      allowed_namespaces:
+        - ordis-e2e
+      timeout: 10
+process:
+  watch_ports: []
+rules: []

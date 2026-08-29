@@ -3,16 +3,41 @@ global:
   notification:
     dingtalk_webhook: ''
     wechat_webhook: ''
-    email:
+detection:
+  cooldown: 300
+  traditional:
+    enabled: true
+    systemd: true
+    systemd_units: []
+    systemd_ignore_units: []
+    docker: true
+    docker_containers: []
+    zombie_threshold: 5
+    inode_threshold: 90
+    inode_paths:
+    - /
+    endpoints: []
+    repair:
       enabled: false
-      smtp_host: "smtp.163.com"
-      smtp_port: 465
-      use_ssl: true
-      username: "sender@example.com"
-      from: "sender@example.com"
-      to:
-        - "receiver@example.com"
-      password_env: "ORDIS_SMTP_PASSWORD"
+      allowed_systemd_units: []
+      allowed_docker_containers: []
+  kubernetes:
+    enabled: false
+    context: ''
+    kubeconfig: ''
+    cluster_name: ''
+    timeout: 15
+    pod_pending_seconds: 300
+    pod_restart_threshold: 5
+    pvc_pending_seconds: 300
+    namespaces: []
+    node_ignore_names: []
+    reason_allowlist: []
+    repair:
+      enabled: false
+      ai_enabled: false
+      allowed_namespaces: []
+      timeout: 45
 process:
   watch_ports:
   - 80

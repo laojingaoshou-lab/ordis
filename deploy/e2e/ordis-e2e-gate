@@ -1,0 +1,16 @@
+#!/bin/sh
+set -eu
+
+attempt_file=/run/ordis-e2e-attempt
+attempt=0
+if [ -f "$attempt_file" ]; then
+    attempt=$(cat "$attempt_file")
+fi
+attempt=$((attempt + 1))
+printf '%s\n' "$attempt" > "$attempt_file"
+
+# Initial start and built-in restart fail. The next AI restart succeeds.
+if [ "$attempt" -le 2 ]; then
+    echo "intentional e2e startup failure $attempt/2" >&2
+    exit 1
+fi

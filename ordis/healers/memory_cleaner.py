@@ -1,5 +1,6 @@
 """内存清理修复器：清理 PM2 日志 + drop page cache。"""
 
+from __future__ import annotations
 import subprocess
 from healers.base import BaseHealer
 

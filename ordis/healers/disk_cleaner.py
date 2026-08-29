@@ -1,98 +1,76 @@
-"""磁盘清理修复器：清理旧日志、临时文件、apt 缓存。"""
+"""磁盘清理自愈器：只清理明确白名单目录中的过期普通文件。"""
+from __future__ import annotations
 
-import subprocess
-import shutil
+import logging
+import os
+import time
 from pathlib import Path
+
 from healers.base import BaseHealer
+
+log = logging.getLogger(__name__)
+
+_FORBIDDEN_DIRS = {"/", "/home", "/root", "/usr", "/etc", "/opt", "/var", "/tmp"}
+_DEFAULT_DIRS = ["/var/log/ordis", "/tmp/ordis-cache"]
 
 
 class DiskCleaner(BaseHealer):
     name = "disk_cleaner"
 
-    # 要清理的目标
-    TARGETS = [
-        "/tmp",
-        "/var/tmp",
-        "/var/cache/apt/archives",
-        "/var/log/journal",
-    ]
-
     def heal(self, context):
-        actions = []
+        params = context.get("params") or {}
+        dirs = params.get("dirs", _DEFAULT_DIRS)
+        exclude = params.get("exclude_patterns", [])
 
-        for target in self.TARGETS:
-            p = Path(target)
-            if not p.exists():
+        if not isinstance(dirs, list) or not dirs:
+            return {"success": False, "actions": [{"error": "dirs 必须是非空目录列表"}]}
+        if not isinstance(exclude, list):
+            return {"success": False, "actions": [{"error": "exclude_patterns 必须是列表"}]}
+
+        try:
+            days = int(params.get("days", 7))
+        except (TypeError, ValueError):
+            return {"success": False, "actions": [{"error": "days 必须是非负整数"}]}
+        if days < 0:
+            return {"success": False, "actions": [{"error": "days 必须是非负整数"}]}
+
+        bases = []
+        for item in dirs:
+            if not isinstance(item, str) or not item.strip():
+                return {"success": False, "actions": [{"error": "dirs 含无效目录"}]}
+            raw = item.strip().replace("\\", "/").rstrip("/") or "/"
+            if raw in _FORBIDDEN_DIRS:
+                return {"success": False,
+                        "actions": [{"error": f"危险目录 {item} 在黑名单中，拒绝清理"}]}
+            base = Path(item).resolve()
+            bases.append(base)
+
+        cutoff = time.time() - days * 86400
+        deleted = 0
+        errors = []
+        scanned = 0
+
+        for base in bases:
+            if not base.is_dir():
                 continue
+            for root, _, files in os.walk(base, followlinks=False):
+                for filename in files:
+                    path = Path(root) / filename
+                    if path.is_symlink() or any(path.match(pattern) for pattern in exclude):
+                        continue
+                    try:
+                        scanned += 1
+                        if path.stat().st_mtime < cutoff:
+                            path.unlink()
+                            deleted += 1
+                    except OSError as e:
+                        errors.append(f"{path}: {e}")
 
-            if target == "/var/cache/apt/archives":
-                # apt 缓存
-                try:
-                    r = subprocess.run(
-                        ["apt-get", "clean"],
-                        capture_output=True, text=True, timeout=30,
-                    )
-                    actions.append({
-                        "action": "apt-get clean",
-                        "success": r.returncode == 0,
-                        "detail": "cleaned apt package cache",
-                    })
-                except Exception as e:
-                    actions.append({
-                        "action": "apt-get clean",
-                        "success": False,
-                        "detail": str(e),
-                    })
-
-            elif target.endswith("journal"):
-                # journal 日志：只保留最近 3 天
-                try:
-                    r = subprocess.run(
-                        ["journalctl", "--vacuum-time=3d"],
-                        capture_output=True, text=True, timeout=30,
-                    )
-                    actions.append({
-                        "action": "journalctl --vacuum-time=3d",
-                        "success": r.returncode == 0,
-                        "detail": r.stdout.strip() or r.stderr.strip(),
-                    })
-                except Exception as e:
-                    actions.append({
-                        "action": "journalctl vacuum",
-                        "success": False,
-                        "detail": str(e),
-                    })
-
-            elif target in ("/tmp", "/var/tmp"):
-                # 清理 7 天前的临时文件
-                try:
-                    count = 0
-                    for f in p.rglob("*"):
-                        if f.is_file():
-                            try:
-                                age = f.stat().st_mtime
-                                import time
-                                if time.time() - age > 7 * 86400:
-                                    f.unlink()
-                                    count += 1
-                            except Exception:
-                                pass
-                    actions.append({
-                        "action": f"clean old files in {target} (>7d)",
-                        "success": True,
-                        "detail": f"removed {count} files",
-                    })
-                except Exception as e:
-                    actions.append({
-                        "action": f"clean {target}",
-                        "success": False,
-                        "detail": str(e),
-                    })
-
-        return {
-            "success": True,
-            "actions": actions,
-        }
+        action = {"dirs": [str(base) for base in bases], "scanned": scanned,
+                  "deleted": deleted}
+        if errors:
+            action["errors"] = errors[:10]
+        return {"success": deleted > 0, "actions": [action]}
 
 
 healer = DiskCleaner()

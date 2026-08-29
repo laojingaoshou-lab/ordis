@@ -1,5 +1,6 @@
 """安全采集器：增量检测 SSH 失败登录（用 journal cursor 去重，不重复计数）。"""
 
+from __future__ import annotations
 import json
 import subprocess
 from pathlib import Path

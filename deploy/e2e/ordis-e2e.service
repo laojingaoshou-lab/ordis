@@ -1,0 +1,8 @@
+[Unit]
+Description=Ordis disposable self-healing E2E service
+
+[Service]
+Type=simple
+ExecStartPre=/usr/local/libexec/ordis-e2e-gate
+ExecStart=/usr/bin/sleep infinity
+Restart=no

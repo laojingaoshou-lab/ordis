@@ -1,21 +1,46 @@
+<p align="center">
+  <img src="screenshots/dashboard.png" alt="Ordis 运行面板" width="100%">
+</p>
 
-
-# Ordis v1.0
+# Ordis — Linux / Kubernetes 自愈运维与 AI 故障诊断
 
 <p align="center">
-  <strong>面向 Linux 的轻量运维检测、自愈与 AI 故障诊断工具</strong>
+  <strong>发现故障、执行受控修复，并把复杂问题交给 AI 分析</strong>
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/版本-v1.0-blue" alt="版本">
-  <img src="https://img.shields.io/badge/平台-Linux-lightgrey" alt="平台">
-  <img src="https://img.shields.io/badge/Kubernetes-兼容-326ce5" alt="Kubernetes">
-  <img src="https://img.shields.io/badge/许可证-MIT-green" alt="许可证">
+  <a href="https://github.com/laojingaoshou-lab/ordis/actions/workflows/ci.yml"><img src="https://github.com/laojingaoshou-lab/ordis/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <img src="https://img.shields.io/badge/Python-3.11%2B-3776AB" alt="Python 3.11+">
+  <img src="https://img.shields.io/badge/Linux-supported-lightgrey" alt="Linux">
+  <img src="https://img.shields.io/badge/Kubernetes-compatible-326ce5" alt="Kubernetes">
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-green" alt="MIT license"></a>
 </p>
 
-Ordis 是一个运行在 Linux 主机上的轻量运维 Demo。它持续采集主机、传统业务和 Kubernetes 的健康状态，在发现故障后执行受控的自动修复；内置修复无法解决时，将现场证据交给 AI 进行诊断，并根据配置选择自动修复或向管理员发送修复建议。
+Ordis 是一个运行在 Linux 主机上的轻量 AIOps 守护进程：持续采集主机、传统业务和 Kubernetes 的健康状态，在发现故障后执行白名单约束的自动修复；内置修复无法解决时，把现场证据交给 AI 诊断，并根据配置选择自动修复或发送建议。
+
+**适合**：想在一台轻量云服务器或小型集群上获得“检测 → 修复 → 回检 → 留痕”闭环的开发者和 SRE。
+
+**不适合**：需要替代 Prometheus/Zabbix 的大规模生产监控平台。
 
 > 当前版本定位为可运行的开源 Demo，不等同于生产级监控平台。请先在测试环境验证规则、权限和修复命令，再接入重要业务。
+
+## 1 分钟体验
+
+```bash
+git clone https://github.com/laojingaoshou-lab/ordis.git
+cd ordis
+python3 -m pip install .
+
+# 只读检查，不会执行修复
+ordis check
+ordis status
+```
+
+不需要 AI API key 也可以先运行主机检查；需要 AI 接管时再执行 `ordis setup` 配置模型。完整配置和 Kubernetes 用法见下文。
+
+## 为什么是 Ordis？
+
+传统监控通常只负责“发现问题”。Ordis 把确定性修复、效果回检、AI 诊断和审计记录串成一个可控闭环：默认只读，修复必须显式开启并配置白名单，AI 生成的技能也必须经过审核后才会生效。
 
 ## 功能概览
 
@@ -303,9 +328,6 @@ python3 ordis/test_k8s_checks.py
 ## 当前定位
 
 v1.0 是一个完整可运行的 Linux 运维自动化 Demo，重点展示“检测 → 确定性修复 → AI 接管 → 技能沉淀”的闭环。它仍需要更多生产化工作，包括更完整的权限隔离、配置管理、可观测性、升级策略和大规模集群验证。欢迎提交 Issue 和 Pull Request，共同完善项目。
-
-## 更新动向
-准备兼容prometheus和zabbix，使用其检测功能，更新web前端，老版本的web已经不适配了
 
 ## 许可证
 

@@ -1,5 +1,6 @@
 """SSH 封禁修复器：将爆破 IP 加入 ufw deny。"""
 
+from __future__ import annotations
 import subprocess
 from healers.base import BaseHealer
 

@@ -1,5 +1,6 @@
 """内存采集器：物理内存 + swap。"""
 
+from __future__ import annotations
 import psutil
 from collectors.base import BaseCollector
 

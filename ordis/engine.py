@@ -1,25 +1,19 @@
 """规则引擎：加载规则 → 运行采集器 → 评估条件 → 触发修复 + 通知。"""
 
+from __future__ import annotations
 import importlib
-import json
 import time
-from pathlib import Path
 from datetime import datetime
 from logger import get_logger
 from config import load_rules
-from notifier import dingtalk_send, wechat_send, email_send
+from notifier import dingtalk_send, wechat_send
+import ai_diagnose
 
 log = get_logger("engine")
 
 # 已触发的冷却记录: {rule_name: last_trigger_time}
 _cooldowns: dict[str, float] = {}
-
-# 事件持久化文件（CLI 和 daemon 共享数据）
-EVENTS_FILE = Path(__file__).parent / "logs" / "events.json"
-
-# 内存缓存（减少 IO）
-_events_cache: list[dict] | None = None
-
+_finding_cooldowns: dict[str, float] = {}
 
 def _load_collector(name: str):
     """动态导入采集器模块，返回 collector 实例。"""
@@ -50,18 +44,14 @@ def _load_healer(name: str):
 
 
 def _eval_condition(condition: str, value: dict, threshold) -> bool:
-    """
-    评估条件表达式。
-    condition 是一个 Python 表达式字符串，如 "value['available_gb'] < threshold"
-    """
+    """评估规则条件表达式。"""
     if condition is None:
         return False
-    # 如果条件里没用到 threshold 变量，threshold 为 None 也允许
     if threshold is None and "threshold" in condition:
-        # 条件用到 threshold 但没设阈值，跳过
         return False
     try:
-        return bool(eval(condition, {"__builtins__": {}}, {"value": value, "threshold": threshold}))
+        return bool(eval(condition, {"__builtins__": {}},
+                        {"value": value, "threshold": threshold}))
     except Exception as e:
         log.error("条件评估失败 '%s': %s", condition, e)
         return False
@@ -70,9 +60,7 @@ def _eval_condition(condition: str, value: dict, threshold) -> bool:
 def _in_cooldown(rule_name: str, cooldown_sec: int) -> bool:
     """检查规则是否在冷却期内。"""
     last = _cooldowns.get(rule_name)
-    if last is None:
-        return False
-    return time.time() - last < cooldown_sec
+    return last is not None and time.time() - last < cooldown_sec
 
 
 def _set_cooldown(rule_name: str):
@@ -80,27 +68,31 @@ def _set_cooldown(rule_name: str):
 
 
 def load_events() -> list[dict]:
-    """从文件加载事件（CLI / dashboard 用）。"""
-    if not EVENTS_FILE.exists():
-        return []
-    try:
-        return json.loads(EVENTS_FILE.read_text())
-    except Exception:
-        return []
-
-
-def _save_events(events: list[dict]):
-    """持久化事件到文件。"""
-    try:
-        EVENTS_FILE.parent.mkdir(parents=True, exist_ok=True)
-        EVENTS_FILE.write_text(json.dumps(events, ensure_ascii=False, indent=2))
-    except Exception as e:
-        log.warning("保存事件文件失败: %s", e)
+    """从数据库加载规则和扩展检测事件（CLI / dashboard 用）。"""
+    import db
+    rows = db.get_recent_events(limit=200)
+    events = []
+    for row in rows:
+        if row["type"] == "rule_trigger":
+            events.append(row["data"])
+        elif row["type"] == "health_finding":
+            finding = row["data"]
+            events.append({
+                "time": finding.get("observed_at", ""),
+                "rule": finding.get("summary", finding.get("reason", "health finding")),
+                "collector": finding.get("source", "detection"),
+                "value": finding,
+                "triggered": True,
+                "heal": None,
+                "notified": False,
+            })
+    return events
 
 
 def _record_event(rule_name: str, collector_name: str, value: dict,
                   triggered: bool, heal_result: dict | None, notify_ok: bool):
-    """记录事件到文件。"""
+    """记录规则触发事件到数据库。"""
+    import db
     event = {
         "time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         "rule": rule_name,
@@ -110,14 +102,146 @@ def _record_event(rule_name: str, collector_name: str, value: dict,
         "heal": heal_result,
         "notified": notify_ok,
     }
-    events = load_events()
-    events.insert(0, event)
-    if len(events) > 200:
-        events = events[:200]
-    _save_events(events)
+    db.save_event("rule_trigger", value.get("hostname", ""), event)
 
 
-def run_once() -> list[dict]:
+def _needs_ai_diagnosis(heal_result: dict | None) -> bool:
+    """Skipped/non-applicable repairs are not failures and need no AI call."""
+    if heal_result is None:
+        return True
+    if heal_result.get("applicable") is False:
+        return False
+    return not heal_result.get("success", False)
+
+
+def _finding_skill(config: dict, fingerprint: str) -> dict | None:
+    return next((rule for rule in config.get("rules", [])
+                 if rule.get("trigger") == "health_finding"
+                 and rule.get("enabled", True)
+                 and rule.get("fingerprint") == fingerprint), None)
+
+
+def _run_finding_skill(rule: dict, finding: dict) -> dict:
+    healer = _load_healer(rule.get("healer"))
+    if not healer:
+        return {"attempted": False, "success": False,
+                "reason": "已审核 skill 的修复器不可用", "actions": []}
+    try:
+        result = healer.heal({
+            "rule_name": rule.get("name"),
+            "collector_name": finding.get("source"),
+            "value": finding,
+            "params": rule.get("params"),
+        })
+        result["attempted"] = True
+        result["source"] = "skill"
+        result["skill_id"] = rule.get("_skill_id")
+        return result
+    except Exception as exc:
+        return {"attempted": True, "success": False, "source": "skill",
+                "skill_id": rule.get("_skill_id"), "actions": [],
+                "reason": str(exc).splitlines()[0][:240]}
+
+
+def _finding_repair_config(config: dict, source: str) -> dict:
+    detection = config.get("detection") or {}
+    return ((detection.get(source) or {}).get("repair") or {})
+
+
+def _handle_findings(reports: list[dict], cooldown_sec: int = 300,
+                     config: dict | None = None) -> list[dict]:
+    """Run approved/built-in repairs, then route failures to AI takeover."""
+    import db
+    import health_repair
+
+    config = config or {}
+    now = time.time()
+    triggered = []
+    k8s_clients = {}
+    for report in reports:
+        for finding in report.get("findings", []):
+            fingerprint = finding["fingerprint"]
+            last = _finding_cooldowns.get(fingerprint)
+            if last is not None and now - last < cooldown_sec:
+                continue
+            _finding_cooldowns[fingerprint] = now
+            db.save_event("health_finding", finding.get("name", ""), finding)
+            attempts = []
+            skill = _finding_skill(config, fingerprint)
+            if skill:
+                skill_result = _run_finding_skill(skill, finding)
+                attempts.append(skill_result)
+                repair_result = skill_result
+            else:
+                repair_result = None
+
+            if not repair_result or not repair_result.get("success"):
+                source = finding.get("source", "")
+                repair_config = _finding_repair_config(config, source)
+                client = None
+                if source == "kubernetes" and repair_config.get("enabled"):
+                    if source not in k8s_clients:
+                        from k8s_client import KubernetesClient
+                        source_config = (config.get("detection") or {}).get(source) or {}
+                        k8s_clients[source] = KubernetesClient(
+                            context=str(source_config.get("context") or ""),
+                            kubeconfig=str(source_config.get("kubeconfig") or ""),
+                            timeout=float(source_config.get("timeout", 15)))
+                    client = k8s_clients[source]
+                builtin_result = health_repair.attempt(
+                    finding, repair_config, k8s_client=client)
+                attempts.append(builtin_result)
+                repair_result = builtin_result
+
+            combined_result = {
+                "attempted": any(item.get("attempted") for item in attempts),
+                "success": bool(repair_result and repair_result.get("success")),
+                "source": repair_result.get("source", "builtin")
+                if repair_result else "builtin",
+                "attempts": attempts,
+            }
+            if repair_result and repair_result.get("reason"):
+                combined_result["reason"] = repair_result["reason"]
+            db.save_event("health_repair", finding.get("name", ""), {
+                "fingerprint": fingerprint,
+                "result": combined_result,
+            })
+            if not combined_result["success"]:
+                try:
+                    ai_diagnose.request_diagnosis_async(
+                        finding["summary"], finding["source"], finding,
+                        combined_result, fingerprint_key=fingerprint)
+                except Exception as exc:
+                    log.warning("扩展故障 AI 诊断调度异常: %s", exc)
+            triggered.append({
+                "rule": finding["summary"],
+                "value": finding,
+                "heal": combined_result,
+                "finding": True,
+            })
+    return triggered
+
+
+def run_detection_checks(config: dict | None = None) -> list[dict]:
+    """Run enabled read-only traditional and Kubernetes health detectors."""
+    if config is None:
+        config = load_rules()
+    detection = config.get("detection") or {}
+    reports = []
+
+    traditional = detection.get("traditional") or {}
+    if traditional.get("enabled", False):
+        from traditional_checks import run_checks
+        reports.append(run_checks(traditional))
+
+    kubernetes = detection.get("kubernetes") or {}
+    if kubernetes.get("enabled", False):
+        from k8s_checks import run_checks
+        reports.append(run_checks(kubernetes))
+    return reports
+
+
+def run_once(verbose: bool = True) -> list[dict]:
     """
     运行一轮所有规则：采集 → 评估 → 修复 → 通知。
     返回本轮触发的事件列表。
@@ -128,12 +252,13 @@ def run_once() -> list[dict]:
     notify_cfg = global_cfg.get("notification", {})
     dingtalk_url = notify_cfg.get("dingtalk_webhook", "")
     wechat_url = notify_cfg.get("wechat_webhook", "")
-    email_cfg = notify_cfg.get("email", {})
 
     triggered = []
 
     for rule in rules:
         if not rule.get("enabled", True):
+            continue
+        if rule.get("trigger") == "health_finding":
             continue
 
         name = rule["name"]
@@ -165,7 +290,8 @@ def run_once() -> list[dict]:
             continue
 
         # 触发！
-        log.info("规则触发 | %s | value=%s", name, value)
+        if verbose:
+            log.info("规则触发 | %s | value=%s", name, value)
         _set_cooldown(name)
 
         # 修复
@@ -178,12 +304,29 @@ def run_once() -> list[dict]:
                     "collector_name": collector_name,
                     "value": value,
                     "threshold": threshold,
+                    "params": rule.get("params"),  # 晋升规则的修复命令等
                 }
                 heal_result = healer.heal(ctx)
-                log.info("修复完成 | %s | %s", name, heal_result)
+                if verbose:
+                    log.info("修复完成 | %s | %s", name, heal_result)
+                from audit import log_audit
+                log_audit("auto_heal", {
+                    "rule": name,
+                    "healer": healer_name,
+                    "result": heal_result
+                })
             except Exception as e:
                 log.error("修复器 '%s' 执行失败: %s", healer_name, e)
                 heal_result = {"success": False, "actions": [], "error": str(e)}
+
+        # AI 诊断调度：仅在修复失败或无修复器时触发（异步，不阻塞主循环）
+        heal_failed = _needs_ai_diagnosis(heal_result)
+        if heal_failed:
+            try:
+                ai_diagnose.request_diagnosis_async(
+                    name, collector_name, value, heal_result)
+            except Exception as e:
+                log.warning("AI诊断调度异常: %s", e)
 
         # 通知
         notify_ok = False
@@ -194,12 +337,15 @@ def run_once() -> list[dict]:
                 f"**采集数据**: {value}\n"
                 f"**修复结果**: {heal_result}"
             )
+            # 修复失败时附带最近一次 AI 诊断摘要（可能尚未完成，属正常）
+            if heal_failed:
+                summary = ai_diagnose.get_latest_diagnosis_summary()
+                if summary:
+                    body += f"\n\n**AI 诊断**:\n{summary}"
             if dingtalk_url:
                 notify_ok = dingtalk_send(dingtalk_url, title, body)
             if wechat_url:
                 notify_ok = wechat_send(wechat_url, title, body) or notify_ok
-            if email_cfg.get("enabled"):
-                notify_ok = email_send(email_cfg, title, body) or notify_ok
 
         # 记录
         _record_event(name, collector_name, value, True, heal_result, notify_ok)
@@ -209,6 +355,9 @@ def run_once() -> list[dict]:
             "heal": heal_result,
         })
 
+    reports = run_detection_checks(config)
+    finding_cooldown = int((config.get("detection") or {}).get("cooldown", 300))
+    triggered.extend(_handle_findings(reports, finding_cooldown, config))
     return triggered
 
 

@@ -1,5 +1,6 @@
 """磁盘采集器：根分区使用率。"""
 
+from __future__ import annotations
 import psutil
 from collectors.base import BaseCollector
 

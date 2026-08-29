@@ -1,0 +1,15 @@
+[Unit]
+Description=Ordis Guardian - 自愈运维守护进程
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/ordis
+ExecStart=/usr/bin/python3 /opt/ordis/ordisc run
+Restart=always
+RestartSec=10
+StandardOutput=append:/var/log/ordis-guardian.log
+StandardError=append:/var/log/ordis-guardian.log
+
+[Install]
+WantedBy=multi-user.target

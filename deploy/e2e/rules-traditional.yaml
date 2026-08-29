@@ -1,0 +1,30 @@
+global:
+  check_interval: 30
+  notification:
+    dingtalk_webhook: ''
+    wechat_webhook: ''
+detection:
+  cooldown: 0
+  traditional:
+    enabled: true
+    systemd: true
+    systemd_units:
+      - ordis-e2e.service
+    systemd_ignore_units: []
+    docker: false
+    docker_containers: []
+    zombie_threshold: 1000000
+    inode_threshold: 101
+    inode_paths:
+      - /
+    endpoints: []
+    repair:
+      enabled: true
+      allowed_systemd_units:
+        - ordis-e2e.service
+      allowed_docker_containers: []
+  kubernetes:
+    enabled: false
+process:
+  watch_ports: []
+rules: []
