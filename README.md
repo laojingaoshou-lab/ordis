@@ -27,7 +27,9 @@ Ordis 是一个运行在 Linux 主机上的轻量 AIOps 守护进程：持续采
 ```bash
 git clone https://github.com/laojingaoshou-lab/ordis.git
 cd ordis
-python3 -m pip install .
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install .
 
 # 只读检查，不会执行修复
 ordis check
@@ -81,9 +83,13 @@ Ordis 面向 Linux，建议使用 Python 3.11 及以上版本。
 ```bash
 git clone https://github.com/laojingaoshou-lab/ordis.git
 cd ordis
-python3 -m pip install .
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install .
 ordis --help
 ```
+
+需要 Python 3.11+ 及可用的 `venv`/pip。若创建虚拟环境时报缺少 `ensurepip` 或 pip，请先用发行版的软件包管理器安装 Python venv/pip 组件，再重试。
 
 不安装到系统 PATH 时，也可以直接运行源码入口：
 
@@ -310,12 +316,13 @@ uvicorn dashboard:app --host 0.0.0.0 --port 9999
 ## 开发与测试
 
 ```bash
-python3 -m pytest -q
-python3 ordis/test_ai_diagnose.py
-python3 ordis/test_adversarial.py
-python3 ordis/test_auto_skill.py
-python3 ordis/test_levels.py
-python3 ordis/test_k8s_checks.py
+python -m pip install -e '.[test]'
+python -m pytest -q
+python ordis/test_ai_diagnose.py
+python ordis/test_adversarial.py
+python ordis/test_auto_skill.py
+python ordis/test_levels.py
+python ordis/test_k8s_checks.py
 ```
 
 测试中的模型调用应 mock，避免把真实 API key 和外部服务带入测试。详细架构、部署、测试报告和接手说明见：
